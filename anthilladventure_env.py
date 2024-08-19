@@ -4,48 +4,87 @@ import ursina as us
 import keyboard
 
 class AntEnvironment():
-    def __init__(self, render_gui=False) :
-        self.render_gui = render_gui
+    def __init__(self) :
+        self.state = self.__get_random_state()
 
+        self.rendered = False
+
+        self.__buildWindow()
+    
+    def __get_random_state(self):
         self.ant_position = (np.random.randint(0,7),np.random.randint(0,7))
 
-        self.previous_positions = set()
+        previous_positions = set()
 
-        leaves = self.fill_positions(3)
-        trashes = self.fill_positions(2)
-        sticks = self.fill_positions(1)
-        rocks = self.fill_positions(1)
-        anthill_position = self.fill_positions(1)
+        leaves, previous_positions = self.__get_random_positions(3, previous_positions)
+        trashes, previous_positions = self.__get_random_positions(2, previous_positions)
+        sticks, previous_positions = self.__get_random_positions(1, previous_positions)
+        rocks, previous_positions = self.__get_random_positions(1, previous_positions)
+        anthill, _ = self.__get_random_positions(1, previous_positions)
 
-        self.carried_object = np.array([1,0,0,0,0])
+        carried_object = np.array([1,0,0,0,0])
 
-        self.objects_positions = [leaves,trashes,sticks,rocks,anthill_position]
+        objects_positions = [leaves,trashes,sticks,rocks,anthill]
 
-        self.state = {
+        return {
             'ant_position' : self.ant_position,
-            'objects_positions' : self.objects_positions,
-            'carried_object' : self.carried_object
+            'objects_positions' : objects_positions,
+            'carried_object' : carried_object
         }
 
-        self.first_state = self.state
-
-        self.buildWindow()
-
-    def close(self):
-        if self.render_gui:
-            self.app.destroy()
-    
-    def fill_positions(self, quantity):
+    def __get_random_positions(self, quantity, previous_positions):
         positions = set()
         for _ in range(quantity):
             pos = (np.random.randint(0,7),np.random.randint(0,7))
-            while (pos[0] == self.ant_position[0] and pos[1] == self.ant_position[1]) or pos in self.previous_positions:
+            while (pos[0] == self.ant_position[0] and pos[1] == self.ant_position[1]) or pos in previous_positions:
                 pos = (np.random.randint(0,7),np.random.randint(0,7))
             
             positions.add(pos)
-            self.previous_positions.add(pos)
+            previous_positions.add(pos)
 
-        return positions
+        return positions, previous_positions
+
+    def __buildWindow(self):
+
+        if not self.rendered:
+            self.app = us.Ursina()
+
+            us.window.size = (800,800)
+            us.window.color = us.color.rgb(102/255, 51/255, 0)
+            us.camera.orthographic = True
+            us.camera.fov = 1
+
+        self.object_renders = {}
+        self.ground_renders = []
+
+        for i in range(8):
+            for j in range(8):
+                texture = 'images/ground.jpg'
+
+                if (i,j) in self.state['objects_positions'][-1]:
+                    texture = 'images/anthill.jpg'
+
+                self.ground_renders.append(us.Entity(scale=(1/8, 1/8), model='quad', texture=texture, origin_x=0, origin_y=0, x=-.438 + 1/8*i, y=.438 - 1/8*j, z = 0))
+
+                if (i,j) == self.ant_position:
+                    self.ant_render = us.Entity(scale=(1/10, 1/10), model='quad', texture='images/ant.png', origin_x=0, origin_y=0, x=-.438 + 1/8*i, y=.438 - 1/8*j, z = -1)
+
+                file_name = ''
+                if (i,j) in self.state['objects_positions'][0]:
+                    file_name = 'leaf'
+                if (i,j) in self.state['objects_positions'][1]:
+                    file_name = 'trash'
+                if (i,j) in self.state['objects_positions'][2]:
+                    file_name = 'sticks'
+                if (i,j) in self.state['objects_positions'][3]:
+                    file_name = 'rock'
+                    
+                if len(file_name) > 0:
+                    self.object_renders[(i,j)] = us.Entity(scale=(1/15, 1/15), model='quad', texture=f'images/{file_name}.png', origin_x=0, origin_y=0, x=-.438 + 1/8*i, y=.438 - 1/8*j, z = -1, object_type = file_name)    
+
+        self.rendered = True
+        for _ in range(10):
+            self.app.step()
     
     def step(self, action):
         if self.state['carried_object'][0] == 1:
@@ -77,106 +116,67 @@ class AntEnvironment():
                 self.state['ant_position'] = (x-1,y)
         elif action == 4:
             if self.state['carried_object'][0] == 1:
-                if self.ant_can_pick_object(0): #picked a leaf   
+                if self.__ant_can_pick_object(0): #picked a leaf   
                     picked = True                 
-                    self.change_carried_object(1)
-                    reward = 10
-                elif self.ant_can_pick_object(1): #picked a trash                    
+                    self.__change_carried_object(1)
+                    reward = -.1
+                elif self.__ant_can_pick_object(1): #picked a trash                    
                     picked = True
-                    self.change_carried_object(2)
-                    reward = -10
-                elif self.ant_can_pick_object(2): #picked a stick                    
+                    self.__change_carried_object(2)
+                    reward = -5
+                elif self.__ant_can_pick_object(2): #picked a stick                    
                     picked = True
-                    self.change_carried_object(3)
-                    reward = 10
-                elif self.ant_can_pick_object(3): #picked a rock                    
+                    self.__change_carried_object(3)
+                    reward = -.1
+                elif self.__ant_can_pick_object(3): #picked a rock                    
                     picked = True
-                    self.change_carried_object(4)
+                    self.__change_carried_object(4)
                     reward = -5
                 else:   #tried to pick nothing                    
                     reward = -2
             else:
-                if self.ant_can_drop_object():
+                if self.__ant_can_drop_object():
                     item_dropped = np.argmax(self.state['carried_object'])
                     if item_dropped == 1 or item_dropped == 3:
                         reward = 20 if self.state['ant_position'] in self.state['objects_positions'][-1] else -5
                     else:
                         reward = -20 if self.state['ant_position'] in self.state['objects_positions'][-1] else -.5 
                     dropped = True
-                    self.drop_object()
-                else:
+                    self.__drop_object()
+                else: #tried to do an illegal drop
                     reward = -2
             
         done = len(self.state['objects_positions'][0]) == 0 and len(self.state['objects_positions'][2]) == 0 and self.state['carried_object'][0] == 1
 
-        self.update(picked,dropped,item_dropped,action)
+        self.__update(picked,dropped,item_dropped,action)
 
         self.app.step()
         self.app.step()
 
         return self.state, reward, done
                     
-    def ant_can_pick_object(self, obj_index):
+    def __ant_can_pick_object(self, obj_index):
         return self.state['ant_position'] in self.state['objects_positions'][obj_index]
 
-    def change_carried_object(self, obj_index):
+    def __change_carried_object(self, obj_index):
         self.state['objects_positions'][obj_index-1].remove(self.state['ant_position'])
         self.state['carried_object'][0] = 0
         self.state['carried_object'][obj_index] = 1
     
-    def ant_can_drop_object(self):
+    def __ant_can_drop_object(self):
         for i in range(len(self.state['objects_positions']) - 1): #check every object but the anthill, cause you can actually drop an item in the anthill
             if self.state['ant_position'] in self.state['objects_positions'][i]:
                 return False
         return True
 
-    def drop_object(self):
+    def __drop_object(self):
         index = np.argmax(self.state['carried_object']) # index of the current object that is being carried 
         if self.state['ant_position'] not in self.state['objects_positions'][-1]:
             self.state['objects_positions'][index-1].add(self.state['ant_position'])
         self.state['carried_object'][index] = 0
         self.state['carried_object'][0] = 1
     
-    def buildWindow(self):
-        self.app = us.Ursina()
-
-        us.window.size = (800,800)
-        us.window.color = us.color.rgb(102/255, 51/255, 0)
-        us.camera.orthographic = True
-        us.camera.fov = 1
-
-        self.object_renders = {}
-
-        for i in range(8):
-            for j in range(8):
-                texture = 'images/ground.jpg'
-
-                if (i,j) in self.state['objects_positions'][-1]:
-                    texture = 'images/anthill.jpg'
-
-                us.Entity(scale=(1/8, 1/8), model='quad', texture=texture, origin_x=0, origin_y=0, x=-.438 + 1/8*i, y=.438 - 1/8*j, z = 0)
-
-                if (i,j) == self.ant_position:
-                    self.ant_render = us.Entity(scale=(1/10, 1/10), model='quad', texture='images/ant.png', origin_x=0, origin_y=0, x=-.438 + 1/8*i, y=.438 - 1/8*j, z = -1)
-
-                file_name = ''
-                if (i,j) in self.state['objects_positions'][0]:
-                    file_name = 'leaf'
-                if (i,j) in self.state['objects_positions'][1]:
-                    file_name = 'trash'
-                if (i,j) in self.state['objects_positions'][2]:
-                    file_name = 'sticks'
-                if (i,j) in self.state['objects_positions'][3]:
-                    file_name = 'rock'
-                    
-                if len(file_name) > 0:
-                    self.object_renders[(i,j)] = us.Entity(scale=(1/15, 1/15), model='quad', texture=f'images/{file_name}.png', origin_x=0, origin_y=0, x=-.438 + 1/8*i, y=.438 - 1/8*j, z = -1, object_type = file_name)    
-
-        self.rendered = True
-        for _ in range(10):
-            self.app.step()
-    
-    def update(self, picked, dropped, itemDropped,lastAction = -1):
+    def __update(self, picked, dropped, itemDropped,lastAction = -1):
             self.ant_render.x = -.438 + 1/8*self.state['ant_position'][0]
             self.ant_render.y = .438 - 1/8*self.state['ant_position'][1]
 
@@ -202,16 +202,29 @@ class AntEnvironment():
                     self.object_renders[(i,j)] = us.Entity(scale=(1/15, 1/15), model='quad', texture=f'images/{file_name}.png', origin_x=0, origin_y=0, x=-.438 + 1/8*i, y=.438 - 1/8*j, z = -1, object_type = file_name)
 
     def reset(self):
-        #self.state = self.first_state
-        #self.app.destroy()
-        #self.buildWindow()
-        pass
-    
+        for entity in self.object_renders.values():
+            entity.disable()
+
+        for item in self.ground_renders:
+            item.disable()
+
+        self.ground_renders.clear()
+
+        self.object_renders.clear()
+
+        self.ant_render.disable()
+
+        self.state = self.__get_random_state()
+
+        self.__buildWindow()
+
+        return self.state
+
     def close(self):
         self.app.destroy()
         
 
-ant = AntEnvironment(render_gui=True)
+env = AntEnvironment()
 
 map_keys = {'w':0, 's':1, 'd':2, 'a':3, 'e':4, 'r':-1}
 
@@ -223,7 +236,7 @@ while 1:
         break
     if key in map_keys:
         action = map_keys[key]
-        state, reward, done = ant.step(action)
+        state, reward, done = env.step(action)
         acum_reward += reward
         time.sleep(0.15)
         print(reward)
@@ -231,7 +244,7 @@ while 1:
             print('Game Over')
             print('Acumulated Reward:', acum_reward)
             acum_reward = 0
-            #ant.reset()
-            break
+            env.reset()
+            
     
-ant.close()
+env.close()
