@@ -1,7 +1,7 @@
-import time
+#import time
 import numpy as np
 import ursina as us
-import keyboard
+#import keyboard
 
 class AntEnvironment():
     def __init__(self) :
@@ -12,7 +12,7 @@ class AntEnvironment():
         self.__buildWindow()
     
     def __get_random_state(self):
-        self.ant_position = (np.random.randint(0,7),np.random.randint(0,7))
+        self.ant_position = (np.random.randint(0,3),np.random.randint(0,3))
 
         previous_positions = set()
 
@@ -35,9 +35,9 @@ class AntEnvironment():
     def __get_random_positions(self, quantity, previous_positions):
         positions = set()
         for _ in range(quantity):
-            pos = (np.random.randint(0,7),np.random.randint(0,7))
+            pos = (np.random.randint(0,3),np.random.randint(0,3))
             while (pos[0] == self.ant_position[0] and pos[1] == self.ant_position[1]) or pos in previous_positions:
-                pos = (np.random.randint(0,7),np.random.randint(0,7))
+                pos = (np.random.randint(0,3),np.random.randint(0,3))
             
             positions.add(pos)
             previous_positions.add(pos)
@@ -49,7 +49,7 @@ class AntEnvironment():
         if not self.rendered:
             self.app = us.Ursina()
 
-            us.window.size = (800,800)
+            us.window.size = (400,400)
             us.window.color = us.color.rgb(102/255, 51/255, 0)
             us.camera.orthographic = True
             us.camera.fov = 1
@@ -57,17 +57,17 @@ class AntEnvironment():
         self.object_renders = {}
         self.ground_renders = []
 
-        for i in range(8):
-            for j in range(8):
+        for i in range(4):
+            for j in range(4):
                 texture = 'images/ground.jpg'
 
                 if (i,j) in self.state['objects_positions'][-1]:
                     texture = 'images/anthill.jpg'
 
-                self.ground_renders.append(us.Entity(scale=(1/8, 1/8), model='quad', texture=texture, origin_x=0, origin_y=0, x=-.438 + 1/8*i, y=.438 - 1/8*j, z = 0))
+                self.ground_renders.append(us.Entity(scale=(1/4, 1/4), model='quad', texture=texture, origin_x=0, origin_y=0, x=-.375 + 1/4*i, y=.375 - 1/4*j, z = 0))
 
                 if (i,j) == self.ant_position:
-                    self.ant_render = us.Entity(scale=(1/10, 1/10), model='quad', texture='images/ant.png', origin_x=0, origin_y=0, x=-.438 + 1/8*i, y=.438 - 1/8*j, z = -1)
+                    self.ant_render = us.Entity(scale=(1/5, 1/5), model='quad', texture='images/ant.png', origin_x=0, origin_y=0, x=-.375 + 1/4*i, y=.375 - 1/4*j, z = -1)
 
                 file_name = ''
                 if (i,j) in self.state['objects_positions'][0]:
@@ -80,65 +80,49 @@ class AntEnvironment():
                     file_name = 'rock'
                     
                 if len(file_name) > 0:
-                    self.object_renders[(i,j)] = us.Entity(scale=(1/15, 1/15), model='quad', texture=f'images/{file_name}.png', origin_x=0, origin_y=0, x=-.438 + 1/8*i, y=.438 - 1/8*j, z = -1, object_type = file_name)    
+                    self.object_renders[(i,j)] = us.Entity(scale=(2/15, 2/15), model='quad', texture=f'images/{file_name}.png', origin_x=0, origin_y=0, x=-.375 + 1/4*i, y=.375 - 1/4*j, z = -1, object_type = file_name)    
 
         self.rendered = True
         for _ in range(10):
             self.app.step()
     
     def step(self, action):
-        if self.state['carried_object'][0] == 1:
-            reward = -1
-        elif self.state['carried_object'][1] == 1 or self.state['carried_object'][3] == 1:
-            reward = -.5
+        if action not in range(5):
+            raise TypeError("Action should be an integer in range [0,4]")
+        
+        carried_obj = np.argmax(self.state['carried_object'])
+
+        if carried_obj == 0:
+            reward = -.8
+        elif carried_obj == 1 or carried_obj == 3:
+            reward = -.2
         else:
-            reward = -2
+            reward = -1
 
         picked = False
         dropped = False
         item_dropped = -1
 
-        pos = self.state['ant_position']
-        x = pos[0]
-        y = pos[1]
-
-        if action == 0:
-            if y > 0:
-                self.state['ant_position'] = (x,y-1)
-        elif action == 1:
-            if y < 7:
-                self.state['ant_position'] = (x,y+1)
-        elif action == 2:
-            if x < 7:
-                self.state['ant_position'] = (x+1,y)
-        elif action == 3:
-            if x > 0:
-                self.state['ant_position'] = (x-1,y)
+        pos_before = self.state['ant_position']
+        
+        if action in range(4):
+            pos = self.__move_ant(action)
+            reward = -1 if pos_before == pos else reward
         elif action == 4:
             if self.state['carried_object'][0] == 1:
-                if self.__ant_can_pick_object(0): #picked a leaf   
+                object_to_pick = self.__get_object_to_pick()
+
+                if object_to_pick != -1: 
                     picked = True                 
-                    self.__change_carried_object(1)
-                    reward = -.1
-                elif self.__ant_can_pick_object(1): #picked a trash                    
-                    picked = True
-                    self.__change_carried_object(2)
-                    reward = -5
-                elif self.__ant_can_pick_object(2): #picked a stick                    
-                    picked = True
-                    self.__change_carried_object(3)
-                    reward = -.1
-                elif self.__ant_can_pick_object(3): #picked a rock                    
-                    picked = True
-                    self.__change_carried_object(4)
-                    reward = -5
+                    self.__change_carried_object(object_to_pick)
+                    reward = -.1 if object_to_pick == 1 or object_to_pick == 3 else -1
                 else:   #tried to pick nothing                    
                     reward = -2
             else:
                 if self.__ant_can_drop_object():
                     item_dropped = np.argmax(self.state['carried_object'])
                     if item_dropped == 1 or item_dropped == 3:
-                        reward = 20 if self.state['ant_position'] in self.state['objects_positions'][-1] else -5
+                        reward = 20 if self.state['ant_position'] in self.state['objects_positions'][-1] else -2
                     else:
                         reward = -20 if self.state['ant_position'] in self.state['objects_positions'][-1] else -.5 
                     dropped = True
@@ -154,9 +138,25 @@ class AntEnvironment():
         self.app.step()
 
         return self.state, reward, done
+
+    def __move_ant(self, action):
+        x,y = self.state['ant_position']
+        if action == 0 and y > 0:
+            self.state['ant_position'] = (x,y-1)
+        if action == 1 and y < 3:
+            self.state['ant_position'] = (x,y+1)
+        if action == 2 and x < 3:
+            self.state['ant_position'] = (x+1,y)
+        if action == 3 and x > 0:
+            self.state['ant_position'] = (x-1,y)
+
+        return self.state['ant_position']
                     
-    def __ant_can_pick_object(self, obj_index):
-        return self.state['ant_position'] in self.state['objects_positions'][obj_index]
+    def __get_object_to_pick(self):
+        for i in range(4):
+            if self.state['ant_position'] in self.state['objects_positions'][i]:
+                return i + 1
+        return -1
 
     def __change_carried_object(self, obj_index):
         self.state['objects_positions'][obj_index-1].remove(self.state['ant_position'])
@@ -177,8 +177,8 @@ class AntEnvironment():
         self.state['carried_object'][0] = 1
     
     def __update(self, picked, dropped, itemDropped,lastAction = -1):
-            self.ant_render.x = -.438 + 1/8*self.state['ant_position'][0]
-            self.ant_render.y = .438 - 1/8*self.state['ant_position'][1]
+            self.ant_render.x = -.375 + 1/4*self.state['ant_position'][0]
+            self.ant_render.y = .375 - 1/4*self.state['ant_position'][1]
 
             rotations = {0 : 0, 1 : 180, 2 : 90, 3 : -90}
 
@@ -199,7 +199,7 @@ class AntEnvironment():
                 self.ant_render.texture = 'images/ant.png'
                 file_name = names[itemDropped-1]
                 if (i,j) not in self.state['objects_positions'][-1]:
-                    self.object_renders[(i,j)] = us.Entity(scale=(1/15, 1/15), model='quad', texture=f'images/{file_name}.png', origin_x=0, origin_y=0, x=-.438 + 1/8*i, y=.438 - 1/8*j, z = -1, object_type = file_name)
+                    self.object_renders[(i,j)] = us.Entity(scale=(2/15, 2/15), model='quad', texture=f'images/{file_name}.png', origin_x=0, origin_y=0, x=-.375 + 1/4*i, y=.375 - 1/4*j, z = -1, object_type = file_name)
 
     def reset(self):
         for entity in self.object_renders.values():
@@ -226,6 +226,7 @@ class AntEnvironment():
 
 env = AntEnvironment()
 
+'''
 map_keys = {'w':0, 's':1, 'd':2, 'a':3, 'e':4, 'r':-1}
 
 action = 0
@@ -248,3 +249,4 @@ while 1:
             
     
 env.close()
+'''
