@@ -1,3 +1,18 @@
+# -*- coding: utf-8 -*-
+"""
+MDP Solution using value iteration algorithm for the environment shown in the book: 
+
+Artificial Intelligence A Modern Approach - Third Edition (Russel,Norvig - 2010; P. 645)
+
+State numbers:
+
+    8  9 10 11
+    4  -  6  7
+    0  1  2  3
+
+@author: Iuri Schmoeller
+"""
+
 import numpy as np
 
 def getTransition(state, action):
@@ -11,7 +26,7 @@ def getReward(state):
     else:
         return -0.04
     
-def valueInteraction(states, actions, probs, discountFactor = 1):
+def valueIteration(states, actions, probs, discountFactor = 1):
     utilities = np.array([0,0,0,0,0,0,0,-1,0,0,0,1], dtype='float64')
 
     j = 0
@@ -53,11 +68,13 @@ env = np.array(np.arange(12))
 goal = 11
 secondGoal = 7
 
+
+# Transition model for the env. - Ex: At State 0 if the agent takes the action 0(up) it goes to state 4
 transitions = np.array([[4, 1, 0, 0],[1, 2, 1, 0],[6, 3, 2, 1],[7, 3, 3, 2],[8, 4, 0, 4],[-1, -1, -1, -1],[10, 7, 2, 6],[-1, -1, -1, -1],[8, 9, 4, 8],[9, 10, 9, 8],[10, 11, 6, 9],[-1, -1, -1, -1]])
 
 probs = np.array([0.8,0.1,0.1])
 
-utilities = valueInteraction(env, actions, probs)
+utilities = valueIteration(env, actions, probs)
 
 map_actions = {0: '↑', 1: '→', 2: '↓', 3: '←'}
 
@@ -81,6 +98,4 @@ for i in range(12):
 
         probUtilitySums.append(soma)
     
-    print('State:', i, 'Action:', map_actions[np.argmax(probUtilitySums)])
-
-
+    print('State:', i, 'Action:', map_actions[np.argmax(probUtilitySums)]) #Optimal policy
