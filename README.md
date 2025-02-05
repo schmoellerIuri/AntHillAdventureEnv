@@ -22,7 +22,7 @@ O ambiente foi construído utilizando a linguagem Python e a biblioteca Ursina p
 ```python
 from ant_env import AntEnvironment
 
-# Criando um ambiente 6x6
+# Criando um ambiente 4x4
 env = AntEnvironment(render=True ,grid_size=4)
 
 # Resetando o ambiente
