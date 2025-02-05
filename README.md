@@ -12,6 +12,9 @@ O ambiente foi construído utilizando a linguagem Python e a biblioteca Ursina p
 - **Sistema de Recompensas:** O agente recebe recompensas positivas e negativas de acordo com suas ações, incentivando comportamentos ótimos.
 - **Interface Gráfica:** Utiliza a biblioteca Ursina para visualização em tempo real das ações do agente.
 - **Modelo de Aprendizado por Reforço:** O ambiente pode ser modelado como um Processo de Decisão de Markov (MDP), permitindo a implementação de diversos algoritmos de aprendizado por reforço.
+<p align="center">
+<img src="https://github.com/schmoellerIuri/AntHillAdventureEnv/blob/main/interface_image.png" width="400" height="400">
+</p>
 
 ## Requisitos
 - Python 3.8+
@@ -19,6 +22,11 @@ O ambiente foi construído utilizando a linguagem Python e a biblioteca Ursina p
 - NumPy
 
 ## Como Usar
+
+### Ações disponíveis
+
+`{0: Baixo, 1: Cima, 2: Direita, 3: Esquerda, 4: Interagir(pegar ou largar objetos)}`
+
 ```python
 from ant_env import AntEnvironment
 
