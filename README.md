@@ -30,10 +30,10 @@ O ambiente foi construído utilizando a linguagem Python e a biblioteca Ursina p
 ```python
 from ant_env import AntEnvironment
 
-# Criando um ambiente 4x4
+# Criando um ambiente 4x4, setando render = True para renderizar a interface gráfica
 env = AntEnvironment(render=True ,grid_size=4)
 
-# Resetando o ambiente
+# Resetando o ambiente para um estado inicial aleatório
 env.reset()
 
 # Tomando uma ação (exemplo: mover para a direita)
