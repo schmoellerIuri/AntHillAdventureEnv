@@ -8,10 +8,10 @@ class State():
         self.carried_object = carried_object
 
 class AntEnvironment():
-    def __init__(self, render=False, n=4) :
-        if (n < 4 or n > 8): raise TypeError('n must be an integer in range [4,9]')
+    def __init__(self, render=False, grid_size=4) :
+        if (grid_size < 4 or grid_size > 8): raise TypeError('grid_size must be an integer in range [4,9]')
 
-        self.n = n
+        self.n = grid_size
 
         self.state = self.__get_random_state()
 
